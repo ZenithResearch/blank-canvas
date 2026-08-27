@@ -38,6 +38,14 @@ struct RuntimeContractTests {
         #expect(staging.galleryURL == URL(string: "http://127.0.0.1:3001/wallpapers"))
         try staging.remotePolicy.validate(staging.catalogURL, label: "catalog")
 
+        let stableStaging = try RuntimeConfiguration.load(
+            bundleValues: ["BlankCanvasChannel": "staging"],
+            environment: [:],
+            arguments: ["BlankCanvas"]
+        )
+        #expect(stableStaging.catalogURL == RuntimeConfiguration.stagingCatalogURL)
+        #expect(stableStaging.galleryURL == RuntimeConfiguration.stagingGalleryURL)
+
         let protected = try RuntimeConfiguration.load(
             bundleValues: ["BlankCanvasChannel": "staging"],
             environment: [

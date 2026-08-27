@@ -33,8 +33,8 @@
     <key>BlankCanvasChannel</key>
     <string>staging</string>
     <key>BlankCanvasCatalogURL</key>
-    <string>https://zenith-landing-git-feat-remote-wallpaper-832d6e-zenith-research.vercel.app/wallpapers/v1/catalog.json</string>
+    <string>https://zenith-research.ca/wallpapers/v1/staging/catalog.json</string>
     <key>BlankCanvasGalleryURL</key>
-    <string>https://zenith-landing-git-feat-remote-wallpaper-832d6e-zenith-research.vercel.app/wallpapers</string>
+    <string>https://zenith-research.ca/wallpapers/staging</string>
 </dict>
 </plist>

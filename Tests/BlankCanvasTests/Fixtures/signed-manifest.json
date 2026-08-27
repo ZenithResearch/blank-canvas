@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "starward-loggia",
   "version": "1.0.0",
-  "releasedAt": "2026-08-25T20:00:00Z",
+  "releasedAt": "2026-08-26T20:00:00Z",
   "entry": "index.html",
   "runtime": {
     "api": "zenith-wallpaper-host",
@@ -17,7 +17,7 @@
   "archive": {
     "url": "https://zenith-research.ca/wallpapers/v1/packs/starward-loggia/1.0.0/pack.zip",
     "bytes": 65400,
-    "sha256": "e399b12bd63f1dd726ea5adf7409279cf58d0f4243813f6b6f66168512f54c20"
+    "sha256": "07cb3260dbc99725dcd9adea1ac3639049d0da9385002d94d8f61e3254cd16a2"
   },
   "actions": [
     { "id": "hero-view", "title": "Hero View", "symbol": "viewfinder" },
@@ -29,6 +29,6 @@
   "signature": {
     "algorithm": "ed25519",
     "keyID": "zenith-wallpapers-2026-01",
-    "value": "huQ9GDvzG6jCT8bgu806J5Fr+g4TtnYU/e6xL2+Dl4ejP0lsVSemHMXLlXj7gi3C7QRqTyxGbYn60vPagwc6CQ=="
+    "value": "/4ROOQWhi35TxvLNkn4RMK0nwuZb+RM55YQimP+PjmAYmKYsiVyDQ+TrxDAFRTibPkbVfCvmgQ9Zg3QWMu1jDw=="
   }
 }

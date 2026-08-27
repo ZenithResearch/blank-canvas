@@ -37,6 +37,8 @@ struct RemoteURLPolicy: Sendable {
 struct RuntimeConfiguration: Sendable {
     static let productionCatalogURL = URL(string: "https://zenith-research.ca/wallpapers/v1/catalog.json")!
     static let productionGalleryURL = URL(string: "https://zenith-research.ca/wallpapers/")!
+    static let stagingCatalogURL = URL(string: "https://zenith-research.ca/wallpapers/v1/staging/catalog.json")!
+    static let stagingGalleryURL = URL(string: "https://zenith-research.ca/wallpapers/staging")!
     static let localCatalogURL = URL(string: "http://127.0.0.1:3001/wallpapers/v1/catalog.json")!
     static let localGalleryURL = URL(string: "http://127.0.0.1:3001/wallpapers")!
 
@@ -81,16 +83,19 @@ struct RuntimeConfiguration: Sendable {
         }
         let catalogURL = try parseURL(
             configuredCatalog,
-            fallback: channel == .production ? productionCatalogURL : localCatalogURL,
+            fallback: channel == .production ? productionCatalogURL : stagingCatalogURL,
             label: "catalog URL"
         )
         let explicitGallery = value(after: "--gallery-url", in: arguments)
             ?? environment["BLANK_CANVAS_GALLERY_URL"]
         let configuredGallery = explicitGallery
             ?? (explicitCatalog == nil ? bundleValues["BlankCanvasGalleryURL"] as? String : nil)
+        let galleryFallback = channel == .production
+            ? productionGalleryURL
+            : configuredCatalog == nil ? stagingGalleryURL : derivedGalleryURL(from: catalogURL)
         let galleryURL = try parseURL(
             configuredGallery,
-            fallback: channel == .production ? productionGalleryURL : derivedGalleryURL(from: catalogURL),
+            fallback: galleryFallback,
             label: "gallery URL"
         )
         guard let productionOrigin = RemoteOrigin(url: productionCatalogURL),
