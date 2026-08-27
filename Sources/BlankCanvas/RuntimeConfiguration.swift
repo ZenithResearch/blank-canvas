@@ -3,6 +3,7 @@ import Foundation
 enum RuntimeChannel: String, Sendable {
     case production
     case staging
+    case development
 }
 
 struct RemoteOrigin: Hashable, Sendable {
@@ -48,9 +49,23 @@ struct RuntimeConfiguration: Sendable {
     let remotePolicy: RemoteURLPolicy
     let protectionBypass: String?
 
-    var cacheNamespace: String { channel == .production ? "blank-canvas" : "blank-canvas-staging" }
-    var defaultsPrefix: String { channel == .production ? "" : "staging." }
-    var displayChannel: String { channel == .production ? "Production" : "Staging" }
+    var cacheNamespace: String {
+        switch channel {
+        case .production: "blank-canvas"
+        case .staging: "blank-canvas-staging"
+        case .development: "blank-canvas-development"
+        }
+    }
+
+    var defaultsPrefix: String {
+        switch channel {
+        case .production: ""
+        case .staging: "staging."
+        case .development: "development."
+        }
+    }
+
+    var displayChannel: String { channel.rawValue.capitalized }
 
     func browserAssetURL(_ url: URL) -> URL {
         guard let protectionBypass, url.host?.hasSuffix(".vercel.app") == true,
@@ -68,31 +83,56 @@ struct RuntimeConfiguration: Sendable {
         arguments: [String] = ProcessInfo.processInfo.arguments
     ) throws -> RuntimeConfiguration {
         let argumentSet = Set(arguments)
-        let bundleChannel = (bundleValues["BlankCanvasChannel"] as? String)?.lowercased()
-        let testMode = argumentSet.contains("--test-mode")
+        let bundleChannelValue = (bundleValues["BlankCanvasChannel"] as? String)?.lowercased()
+        let bundleChannel = bundleChannelValue.flatMap(RuntimeChannel.init(rawValue:))
+        if bundleChannelValue != nil, bundleChannel == nil {
+            throw RuntimeError.invalidConfiguration("bundle channel is invalid")
+        }
+        let developmentMode = argumentSet.contains("--dev-mode")
+            || argumentSet.contains("--test-mode")
+            || environment["BLANK_CANVAS_DEV_MODE"] == "1"
             || environment["BLANK_CANVAS_TEST_MODE"] == "1"
-            || bundleChannel == RuntimeChannel.staging.rawValue
-        let channel: RuntimeChannel = testMode ? .staging : .production
+        let channel: RuntimeChannel = developmentMode ? .development : bundleChannel ?? .production
 
         let explicitCatalog = value(after: "--catalog-url", in: arguments)
             ?? environment["BLANK_CANVAS_CATALOG_URL"]
-        let configuredCatalog = explicitCatalog
-            ?? bundleValues["BlankCanvasCatalogURL"] as? String
-        if channel == .production, configuredCatalog != nil {
-            throw RuntimeError.invalidConfiguration("catalog overrides require --test-mode")
+        if channel != .development, explicitCatalog != nil {
+            throw RuntimeError.invalidConfiguration("catalog overrides require --dev-mode")
+        }
+        let bundledCatalog = bundleValues["BlankCanvasCatalogURL"] as? String
+        let configuredCatalog = channel == .development ? explicitCatalog : bundledCatalog
+        let catalogFallback: URL
+        switch channel {
+        case .production: catalogFallback = productionCatalogURL
+        case .staging: catalogFallback = stagingCatalogURL
+        case .development: catalogFallback = localCatalogURL
         }
         let catalogURL = try parseURL(
             configuredCatalog,
-            fallback: channel == .production ? productionCatalogURL : stagingCatalogURL,
+            fallback: catalogFallback,
             label: "catalog URL"
         )
+        if channel == .development {
+            guard let origin = RemoteOrigin(url: catalogURL),
+                  origin.host == "127.0.0.1" || origin.host == "localhost" else {
+                throw RuntimeError.invalidConfiguration("development catalog must use localhost")
+            }
+        }
         let explicitGallery = value(after: "--gallery-url", in: arguments)
             ?? environment["BLANK_CANVAS_GALLERY_URL"]
-        let configuredGallery = explicitGallery
-            ?? (explicitCatalog == nil ? bundleValues["BlankCanvasGalleryURL"] as? String : nil)
-        let galleryFallback = channel == .production
-            ? productionGalleryURL
-            : configuredCatalog == nil ? stagingGalleryURL : derivedGalleryURL(from: catalogURL)
+        if channel != .development, explicitGallery != nil {
+            throw RuntimeError.invalidConfiguration("gallery overrides require --dev-mode")
+        }
+        let bundledGallery = bundleValues["BlankCanvasGalleryURL"] as? String
+        let configuredGallery = channel == .development
+            ? explicitGallery
+            : bundledGallery
+        let galleryFallback: URL
+        switch channel {
+        case .production: galleryFallback = productionGalleryURL
+        case .staging: galleryFallback = stagingGalleryURL
+        case .development: galleryFallback = derivedGalleryURL(from: catalogURL)
+        }
         let galleryURL = try parseURL(
             configuredGallery,
             fallback: galleryFallback,
@@ -103,8 +143,8 @@ struct RuntimeConfiguration: Sendable {
             throw RuntimeError.invalidConfiguration("catalog origin is invalid")
         }
         let policy = RemoteURLPolicy(
-            allowedOrigins: channel == .production ? [productionOrigin] : [productionOrigin, catalogOrigin],
-            allowsInsecureLoopback: channel == .staging
+            allowedOrigins: channel == .development ? [productionOrigin, catalogOrigin] : [productionOrigin],
+            allowsInsecureLoopback: channel == .development
         )
         try policy.validate(catalogURL, label: "catalog URL")
         return RuntimeConfiguration(

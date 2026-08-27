@@ -54,8 +54,8 @@ struct HUDView: View {
                     .font(.system(size: 16, weight: .bold))
                 HStack(spacing: 6) {
                     Text("Wallpaper runtime · 2.0.0")
-                    if model.configuration.channel == .staging {
-                        Text("STAGING")
+                    if model.configuration.channel != .production {
+                        Text(model.configuration.displayChannel.uppercased())
                             .font(.system(size: 8.5, weight: .bold))
                             .foregroundStyle(.orange)
                             .padding(.horizontal, 5)
@@ -92,7 +92,7 @@ struct HUDView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            if model.configuration.channel == .staging {
+            if model.configuration.channel != .production {
                 Text(model.configuration.catalogURL.absoluteString)
                     .font(.system(size: 9, design: .monospaced))
                     .foregroundStyle(.orange.opacity(0.8))

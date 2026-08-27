@@ -21,22 +21,23 @@ struct RuntimeContractTests {
         #expect(!PackSecurity.validateRelativePath("/index.html"))
     }
 
-    @Test("Production remains pinned while test mode accepts loopback staging")
+    @Test("Production, staging and development use distinct catalogue routes")
     func runtimeConfiguration() throws {
         let production = try RuntimeConfiguration.load(bundleValues: [:], environment: [:], arguments: ["BlankCanvas"])
         #expect(production.channel == .production)
         #expect(production.catalogURL == RuntimeConfiguration.productionCatalogURL)
         #expect(production.cacheNamespace == "blank-canvas")
 
-        let staging = try RuntimeConfiguration.load(
+        let development = try RuntimeConfiguration.load(
             bundleValues: [:],
             environment: [:],
-            arguments: ["BlankCanvas", "--test-mode", "--catalog-url", "http://127.0.0.1:3001/wallpapers/v1/catalog.json"]
+            arguments: ["BlankCanvas", "--dev-mode"]
         )
-        #expect(staging.channel == .staging)
-        #expect(staging.cacheNamespace == "blank-canvas-staging")
-        #expect(staging.galleryURL == URL(string: "http://127.0.0.1:3001/wallpapers"))
-        try staging.remotePolicy.validate(staging.catalogURL, label: "catalog")
+        #expect(development.channel == .development)
+        #expect(development.catalogURL == RuntimeConfiguration.localCatalogURL)
+        #expect(development.cacheNamespace == "blank-canvas-development")
+        #expect(development.galleryURL == RuntimeConfiguration.localGalleryURL)
+        try development.remotePolicy.validate(development.catalogURL, label: "catalog")
 
         let stableStaging = try RuntimeConfiguration.load(
             bundleValues: ["BlankCanvasChannel": "staging"],
@@ -45,24 +46,20 @@ struct RuntimeContractTests {
         )
         #expect(stableStaging.catalogURL == RuntimeConfiguration.stagingCatalogURL)
         #expect(stableStaging.galleryURL == RuntimeConfiguration.stagingGalleryURL)
+        #expect(stableStaging.cacheNamespace == "blank-canvas-staging")
 
-        let protected = try RuntimeConfiguration.load(
-            bundleValues: ["BlankCanvasChannel": "staging"],
-            environment: [
-                "BLANK_CANVAS_CATALOG_URL": "https://preview.vercel.app/wallpapers/v1/catalog.json",
-                "BLANK_CANVAS_STAGING_BYPASS": "test-token",
-            ],
-            arguments: ["BlankCanvas"]
+        let legacyDevelopment = try RuntimeConfiguration.load(
+            bundleValues: [:],
+            environment: [:],
+            arguments: ["BlankCanvas", "--test-mode", "--catalog-url", "http://localhost:8080/wallpapers/v1/catalog.json"]
         )
-        let preview = protected.browserAssetURL(URL(string: "https://preview.vercel.app/preview.avif")!)
-        #expect(URLComponents(url: preview, resolvingAgainstBaseURL: false)?.queryItems?.contains {
-            $0.name == "x-vercel-protection-bypass" && $0.value == "test-token"
-        } == true)
+        #expect(legacyDevelopment.channel == .development)
+        #expect(legacyDevelopment.catalogURL.host == "localhost")
 
         #expect(throws: RuntimeError.self) {
             try RuntimeConfiguration.load(
                 bundleValues: [:],
-                environment: ["BLANK_CANVAS_CATALOG_URL": "https://example.com/catalog.json"],
+                environment: ["BLANK_CANVAS_CATALOG_URL": "http://127.0.0.1:3001/catalog.json"],
                 arguments: ["BlankCanvas"]
             )
         }
@@ -70,7 +67,14 @@ struct RuntimeContractTests {
             try RuntimeConfiguration.load(
                 bundleValues: [:],
                 environment: [:],
-                arguments: ["BlankCanvas", "--test-mode", "--catalog-url", "http://example.com/catalog.json"]
+                arguments: ["BlankCanvas", "--dev-mode", "--catalog-url", "http://example.com/catalog.json"]
+            )
+        }
+        #expect(throws: RuntimeError.self) {
+            try RuntimeConfiguration.load(
+                bundleValues: ["BlankCanvasChannel": "staging"],
+                environment: ["BLANK_CANVAS_CATALOG_URL": "http://127.0.0.1:3001/catalog.json"],
+                arguments: ["BlankCanvas"]
             )
         }
     }

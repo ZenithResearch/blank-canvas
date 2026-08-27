@@ -23,7 +23,7 @@ The scripts enable the hardened runtime, submit each ZIP to Apple, staple the no
 
 The manual `Notarized macOS release` GitHub Actions workflow performs the same operation on a clean macOS runner. It requires these repository secrets: `MACOS_CERTIFICATE_P12_BASE64`, `MACOS_CERTIFICATE_PASSWORD`, `MACOS_KEYCHAIN_PASSWORD`, `MACOS_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, and `APPLE_TEAM_ID`.
 
-## Test mode
+## Staging
 
 Build a separate, visibly labelled staging app with an isolated cache and bundle identifier:
 
@@ -33,11 +33,14 @@ zsh scripts/build-staging-app.sh
 
 The downloadable staging ZIP is written to `dist/blank-canvas-staging-2.0.0-macOS.zip`. It always reads `https://zenith-research.ca/wallpapers/v1/staging/catalog.json`; no Vercel preview hostname is embedded.
 
-Launch it against the local production build:
+## Development mode
+
+Launch the renderer against the local catalogue at `http://127.0.0.1:3001`:
 
 ```sh
-zsh scripts/launch-test-mode.sh \
-  http://127.0.0.1:3001/wallpapers/v1/catalog.json
+zsh scripts/launch-dev-mode.sh
 ```
 
-Test mode permits plain HTTP only for `localhost` and `127.0.0.1`. All catalog, manifest, preview, and archive URLs must still use either the exact selected staging origin or the production Zenith origin. Pack signature, SHA-256, byte-length, path, and runtime checks remain enabled. Production ignores catalog overrides unless `--test-mode` is present.
+Development mode permits plain HTTP only for `localhost` and `127.0.0.1`. An alternate loopback URL can be passed as the first argument. Pack signature, SHA-256, byte-length, path, and runtime checks remain enabled. The legacy `launch-test-mode.sh` and `--test-mode` flag remain aliases for development mode.
+
+The modes are intentionally isolated: production uses the production catalogue and cache, staging uses the stable hosted staging catalogue and staging cache, and development uses only a loopback catalogue and development cache. Catalogue overrides are rejected outside development mode.
