@@ -23,6 +23,18 @@ The scripts enable the hardened runtime, submit each ZIP to Apple, staple the no
 
 The manual `Notarized macOS release` GitHub Actions workflow performs the same operation on a clean macOS runner. It requires these repository secrets: `MACOS_CERTIFICATE_P12_BASE64`, `MACOS_CERTIFICATE_PASSWORD`, `MACOS_KEYCHAIN_PASSWORD`, `MACOS_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, and `APPLE_TEAM_ID`.
 
+## Temporary ad-hoc release
+
+Until those credentials are available, produce the explicitly non-distributable release boundary with:
+
+```sh
+BLANK_CANVAS_RELEASE_MODE=adhoc \
+BLANK_CANVAS_ALLOW_NON_DISTRIBUTABLE_RELEASE=1 \
+zsh scripts/package-release.sh
+```
+
+This generates both ZIPs, machine-readable release metadata, and `SHA256SUMS`. The metadata must report `mode: adhoc`, `notarized: false`, and `distributable: false`; the website must display [the required Gatekeeper notice](release/ADHOC_RELEASE_NOTICE.md) beside these downloads.
+
 ## Staging
 
 Build a separate, visibly labelled staging app with an isolated cache and bundle identifier:
