@@ -99,7 +99,7 @@ struct RuntimeContractTests {
     @Test("A producer-signed manifest fixture verifies in Swift")
     func publishedManifest() throws {
         var repositoryRoot = URL(fileURLWithPath: #filePath)
-        for _ in 0..<5 { repositoryRoot.deleteLastPathComponent() }
+        for _ in 0..<3 { repositoryRoot.deleteLastPathComponent() }
         let fixtureRoot = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .appendingPathComponent("Fixtures")
@@ -108,9 +108,7 @@ struct RuntimeContractTests {
             from: Data(contentsOf: fixtureRoot.appendingPathComponent("signed-manifest.json"))
         )
         let encodedKey = try String(
-            contentsOf: repositoryRoot.appendingPathComponent(
-                "public/wallpapers/v1/keys/zenith-wallpapers-2026-01.pub"
-            ),
+            contentsOf: repositoryRoot.appendingPathComponent("Resources/WallpaperPublicKey.txt"),
             encoding: .utf8
         )
         let publicKey = try #require(Data(base64Encoded: encodedKey.trimmingCharacters(in: .whitespacesAndNewlines)))
