@@ -21,6 +21,8 @@ zsh scripts/build-staging-app.sh
 
 The scripts enable the hardened runtime, submit each ZIP to Apple, staple the notarization ticket to the app, and recreate the distributable ZIP. Do not publish the ad-hoc local artifacts from `dist/`.
 
+The manual `Notarized macOS release` GitHub Actions workflow performs the same operation on a clean macOS runner. It requires these repository secrets: `MACOS_CERTIFICATE_P12_BASE64`, `MACOS_CERTIFICATE_PASSWORD`, `MACOS_KEYCHAIN_PASSWORD`, `MACOS_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, and `APPLE_TEAM_ID`.
+
 ## Test mode
 
 Build a separate, visibly labelled staging app with an isolated cache and bundle identifier:
