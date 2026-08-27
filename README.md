@@ -2,6 +2,12 @@
 
 A native macOS wallpaper runtime with no bundled wallpapers. It discovers signed packs at `https://zenith-research.ca/wallpapers/v1/catalog.json`, verifies and installs them locally, then renders them behind desktop icons through an isolated WebKit origin.
 
+The application icon is generated reproducibly from `Resources/BlankCanvasIcon.svg`:
+
+```sh
+zsh scripts/build-icon.sh
+```
+
 Build with:
 
 ```sh

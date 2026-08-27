@@ -27,6 +27,7 @@ mkdir -p "$CONTENTS_DIR/MacOS" "$CONTENTS_DIR/Resources" "${DOWNLOAD_PATH:h}"
 cp "$BUILD_DIR/release/BlankCanvas" "$CONTENTS_DIR/MacOS/BlankCanvas"
 cp "$PROJECT_DIR/Packaging/Info.plist" "$CONTENTS_DIR/Info.plist"
 cp "$PUBLIC_KEY" "$CONTENTS_DIR/Resources/WallpaperPublicKey.txt"
+cp "$PROJECT_DIR/Resources/BlankCanvasIcon.icns" "$CONTENTS_DIR/Resources/BlankCanvasIcon.icns"
 
 plutil -lint "$CONTENTS_DIR/Info.plist"
 if [[ "$SIGNING_IDENTITY" == "-" ]]; then

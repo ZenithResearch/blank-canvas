@@ -8,6 +8,8 @@
     <string>blank-canvas staging</string>
     <key>CFBundleExecutable</key>
     <string>BlankCanvas</string>
+    <key>CFBundleIconFile</key>
+    <string>BlankCanvasIcon</string>
     <key>CFBundleIdentifier</key>
     <string>ca.zenith-research.blank-canvas.staging</string>
     <key>CFBundleInfoDictionaryVersion</key>
