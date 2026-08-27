@@ -80,7 +80,12 @@ final class RuntimeModel: ObservableObject {
     }
 
     func installFeaturedPack() {
-        guard let pack = featuredPack, !isBusy else { return }
+        guard let pack = featuredPack else { return }
+        install(pack)
+    }
+
+    func install(_ pack: CatalogPack) {
+        guard !isBusy else { return }
         isBusy = true
         errorMessage = nil
         status = "Downloading and verifying \(pack.title)…"
@@ -97,6 +102,14 @@ final class RuntimeModel: ObservableObject {
             }
             self.isBusy = false
         }
+    }
+
+    func isActive(_ pack: CatalogPack) -> Bool {
+        installedPack?.manifest.id == pack.id && installedPack?.manifest.version == pack.currentVersion
+    }
+
+    func isDownloaded(_ pack: CatalogPack) -> Bool {
+        (try? store.installedPack(id: pack.id, version: pack.currentVersion)) != nil
     }
 
     func runAction(_ id: String) {

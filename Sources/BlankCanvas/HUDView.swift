@@ -9,13 +9,20 @@ struct HUDView: View {
             header
             statusCard
 
-            if let installed = model.installedPack {
-                installedControls(installed)
-            } else if let pack = model.featuredPack {
-                catalogCard(pack)
-            } else {
-                emptyState
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    if let installed = model.installedPack {
+                        installedControls(installed)
+                    }
+
+                    if let packs = model.catalog?.packs, !packs.isEmpty {
+                        catalogSection(packs)
+                    } else if model.installedPack == nil {
+                        emptyState
+                    }
+                }
             }
+            .frame(maxHeight: 460)
 
             HStack {
                 Button("Browse online", action: model.openGallery)
@@ -98,8 +105,23 @@ struct HUDView: View {
         .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 12))
     }
 
-    private func catalogCard(_ pack: CatalogPack) -> some View {
-        VStack(alignment: .leading, spacing: 11) {
+    private func catalogSection(_ packs: [CatalogPack]) -> some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Text("WALLPAPER CATALOGUE")
+                .font(.system(size: 9.5, weight: .bold))
+                .foregroundStyle(.secondary)
+
+            ForEach(packs) { pack in
+                catalogRow(pack)
+            }
+        }
+    }
+
+    private func catalogRow(_ pack: CatalogPack) -> some View {
+        let active = model.isActive(pack)
+        let downloaded = model.isDownloaded(pack)
+
+        return HStack(spacing: 10) {
             AsyncImage(url: model.configuration.browserAssetURL(pack.previewURL)) { phase in
                 if let image = phase.image {
                     image.resizable().scaledToFill()
@@ -107,30 +129,46 @@ struct HUDView: View {
                     Rectangle().fill(Color.indigo.opacity(0.14))
                 }
             }
-            .frame(height: 145)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .frame(width: 72, height: 52)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
 
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(pack.title).font(.system(size: 15, weight: .bold))
-                    Text(pack.summary)
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 5) {
+                    Text(pack.title)
+                        .font(.system(size: 12, weight: .bold))
+                        .lineLimit(1)
+                    if pack.featured {
+                        Text("FEATURED")
+                            .font(.system(size: 7.5, weight: .bold))
+                            .foregroundStyle(.indigo)
+                    }
                 }
-                Spacer()
-                Text("v\(pack.currentVersion)")
-                    .font(.system(size: 10, design: .monospaced))
+                Text(pack.summary)
+                    .font(.system(size: 9.5))
                     .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                Text("v\(pack.currentVersion)")
+                    .font(.system(size: 8.5, design: .monospaced))
+                    .foregroundStyle(.tertiary)
             }
 
-            Button(action: model.installFeaturedPack) {
-                Label("Download and install", systemImage: "arrow.down.circle")
-                    .frame(maxWidth: .infinity)
+            Spacer(minLength: 4)
+
+            Button {
+                model.install(pack)
+            } label: {
+                if active {
+                    Image(systemName: "checkmark.circle.fill")
+                } else {
+                    Text(downloaded ? "Use" : "Get")
+                }
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(model.isBusy)
+            .buttonStyle(.bordered)
+            .disabled(active || model.isBusy)
+            .accessibilityLabel(active ? "\(pack.title) is active" : "\(downloaded ? "Use" : "Download") \(pack.title)")
         }
+        .padding(9)
+        .background(active ? Color.indigo.opacity(0.10) : Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 11))
     }
 
     private func installedControls(_ installed: InstalledPack) -> some View {
