@@ -50,6 +50,34 @@ final class PackStore: @unchecked Sendable {
         return try installedPack(id: id, version: version)
     }
 
+    func installedPacks() throws -> [InstalledPack] {
+        let identifiers = (try? fileManager.contentsOfDirectory(
+            at: packsRoot,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        )) ?? []
+        var newest: [String: InstalledPack] = [:]
+        for identifier in identifiers {
+            let versions = (try? fileManager.contentsOfDirectory(
+                at: identifier,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles]
+            )) ?? []
+            for version in versions {
+                guard let pack = try? installedPack(
+                    id: identifier.lastPathComponent,
+                    version: version.lastPathComponent
+                ) else { continue }
+                if let existing = newest[pack.manifest.id],
+                   let existingVersion = SemanticVersion(existing.manifest.version),
+                   let candidateVersion = SemanticVersion(pack.manifest.version),
+                   existingVersion >= candidateVersion { continue }
+                newest[pack.manifest.id] = pack
+            }
+        }
+        return newest.values.sorted { $0.manifest.id < $1.manifest.id }
+    }
+
     func select(_ pack: InstalledPack) {
         UserDefaults.standard.set(pack.manifest.id, forKey: "\(defaultsPrefix)selectedPackID")
         UserDefaults.standard.set(pack.manifest.version, forKey: "\(defaultsPrefix)selectedPackVersion")

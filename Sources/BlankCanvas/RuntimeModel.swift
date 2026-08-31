@@ -14,14 +14,13 @@ final class RuntimeModel: ObservableObject {
 
     var activatePack: ((InstalledPack) -> Void)?
     var performAction: ((String) -> Void)?
-    var notificationStateChanged: ((WallpaperNotificationState) -> Void)?
-    var notificationResult: ((WallpaperNotificationResult) -> Void)?
 
     private let client: CatalogClient
     private let store: PackStore
     private let installer: PackInstaller
     private let notifications: WallpaperNotificationService
     private let publicKeyData: Data
+    private var notificationPollTask: Task<Void, Never>?
     private let logger = Logger(subsystem: "ca.zenith-research.blank-canvas", category: "runtime")
 
     init(configuration: RuntimeConfiguration) throws {
@@ -40,10 +39,6 @@ final class RuntimeModel: ObservableObject {
         installer = PackInstaller(client: client, store: store, publicKeyData: publicKey)
         notifications.onStateChange = { [weak self] state in
             self?.notificationState = state
-            self?.notificationStateChanged?(state)
-        }
-        notifications.onResult = { [weak self] result in
-            self?.notificationResult?(result)
         }
     }
 
@@ -52,7 +47,6 @@ final class RuntimeModel: ObservableObject {
     }
 
     func start() {
-        notifications.start()
         if let selected = try? store.selectedPack(),
            (try? PackSecurity.verify(manifest: selected.manifest, publicKeyData: publicKeyData)) != nil {
             installedPack = selected
@@ -63,6 +57,7 @@ final class RuntimeModel: ObservableObject {
             logger.notice("No cached wallpaper selected; showing the native empty state")
         }
         refreshCatalog()
+        startNotificationPolling()
     }
 
     func refreshCatalog() {
@@ -84,6 +79,7 @@ final class RuntimeModel: ObservableObject {
                 self.logger.notice(
                     "Catalog loaded from \(self.configuration.catalogURL.absoluteString, privacy: .public) with \(catalog.packs.count) pack(s)"
                 )
+                self.refreshNotifications()
             } catch {
                 self.errorMessage = error.localizedDescription
                 self.status = installedPack == nil ? "Catalog unavailable" : "Offline · using downloaded world"
@@ -110,6 +106,7 @@ final class RuntimeModel: ObservableObject {
                 self.status = "\(pack.title) \(installed.manifest.version) · installed"
                 self.activatePack?(installed)
                 self.logger.notice("Installed pack \(installed.manifest.id, privacy: .public)@\(installed.manifest.version, privacy: .public)")
+                self.startNotificationPolling()
             } catch {
                 self.errorMessage = error.localizedDescription
                 self.status = "Installation failed"
@@ -132,10 +129,52 @@ final class RuntimeModel: ObservableObject {
 
     func setNotificationsEnabled(_ enabled: Bool) {
         notifications.setEnabled(enabled)
+        startNotificationPolling()
     }
 
-    func receiveNotificationRequest(_ request: WallpaperNotificationRequest) {
-        notifications.submit(request)
+    func refreshNotifications() {
+        guard notificationState.enabled, !notificationState.isRefreshing else { return }
+        let packs = ((try? store.installedPacks()) ?? []).filter {
+            (try? PackSecurity.verify(manifest: $0.manifest, publicKeyData: publicKeyData)) != nil
+        }
+        let titles = Dictionary(uniqueKeysWithValues: (catalog?.packs ?? []).map { ($0.id, $0.title) })
+        Task { await notifications.refresh(packs: packs, titles: titles) }
+    }
+
+    func markNotificationsRead() {
+        notifications.markAllRead()
+    }
+
+    func openNotification(_ item: WallpaperNotificationItem) {
+        guard let link = item.link, link.scheme?.lowercased() == "https" else { return }
+        NSWorkspace.shared.open(link)
+        notifications.markAllRead()
+    }
+
+    func refreshAll() {
+        refreshCatalog()
+        refreshNotifications()
+    }
+
+    private func startNotificationPolling() {
+        notificationPollTask?.cancel()
+        notificationPollTask = nil
+        guard notifications.state.enabled else { return }
+        refreshNotifications()
+        let intervalSeconds = notificationPollIntervalSeconds()
+        notificationPollTask = Task { [weak self] in
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(intervalSeconds)) } catch { return }
+                guard !Task.isCancelled else { return }
+                self?.refreshNotifications()
+            }
+        }
+    }
+
+    private func notificationPollIntervalSeconds() -> TimeInterval {
+        let declared = ((try? store.installedPacks()) ?? [])
+            .compactMap { $0.manifest.notifications?.pollIntervalMinutes }
+        return TimeInterval(max(declared.max() ?? 15, 15) * 60)
     }
 
     func openGallery() {

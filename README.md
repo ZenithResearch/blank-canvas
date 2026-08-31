@@ -2,7 +2,7 @@
 
 A native macOS wallpaper runtime with no bundled wallpapers. It discovers signed packs at `https://zenith-research.ca/wallpapers/v1/catalog.json`, verifies and installs them locally, then renders them behind desktop icons through an isolated WebKit origin.
 
-Wallpaper developers integrate through the additive [`zenithWallpaper` host event API](docs/WALLPAPER-HOST-API.md). It standardizes app actions, preferences, lifecycle readiness, and user-controlled local notification requests while preserving the original `window.wallpaperHost` fallback.
+Wallpaper developers integrate through the additive [`zenithWallpaper` host event API](docs/WALLPAPER-HOST-API.md). It standardizes app actions, preferences, and lifecycle readiness while preserving the original `window.wallpaperHost` fallback. Installed packs may also declare a signed, read-only Zenith update endpoint. Pulling those updates is off by default and never requests macOS notification permission.
 
 The application icon is generated reproducibly from `Resources/BlankCanvasIcon.svg`:
 

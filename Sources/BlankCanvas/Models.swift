@@ -37,7 +37,19 @@ struct PackManifest: Codable, Sendable {
     let archive: PackArchive
     let actions: [PackAction]
     let motion: PackMotion
+    var notifications: PackNotifications? = nil
     var signature: PackSignature?
+}
+
+struct PackNotifications: Codable, Sendable {
+    let feedURL: URL
+    let format: NotificationFeedFormat
+    let pollIntervalMinutes: Int?
+}
+
+enum NotificationFeedFormat: String, Codable, Sendable {
+    case zenithJSON = "zenith-json-v1"
+    case rss
 }
 
 struct PackRuntime: Codable, Sendable {

@@ -89,6 +89,24 @@ final class PackInstaller: @unchecked Sendable {
         guard manifest.archive.sha256.range(of: "^[0-9a-f]{64}$", options: .regularExpression) != nil else {
             throw RuntimeError.invalidManifest("invalid SHA-256")
         }
+        if let notifications = manifest.notifications {
+            try validateNotificationFeed(notifications)
+        }
+    }
+
+    private func validateNotificationFeed(_ notifications: PackNotifications) throws {
+        guard let scheme = notifications.feedURL.scheme?.lowercased(),
+              let host = notifications.feedURL.host?.lowercased(),
+              !host.isEmpty else {
+            throw RuntimeError.invalidManifest("notification feed URL is invalid")
+        }
+        let loopback = scheme == "http" && (host == "127.0.0.1" || host == "localhost")
+        guard scheme == "https" || (client.configuration.channel == .development && loopback) else {
+            throw RuntimeError.invalidManifest("notification feed must use HTTPS")
+        }
+        if let interval = notifications.pollIntervalMinutes, !(15...1440).contains(interval) {
+            throw RuntimeError.invalidManifest("notification poll interval must be between 15 and 1440 minutes")
+        }
     }
 
     private func archiveEntries(at archiveURL: URL) throws -> [String] {

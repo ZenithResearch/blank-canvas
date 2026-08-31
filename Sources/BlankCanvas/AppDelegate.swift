@@ -16,12 +16,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.model = model
             model.activatePack = { [weak self] pack in self?.activate(pack) }
             model.performAction = { [weak self] action in self?.wallpaperController?.performAction(action) }
-            model.notificationStateChanged = { [weak self] state in
-                self?.wallpaperController?.applyNotificationState(state)
-            }
-            model.notificationResult = { [weak self] result in
-                self?.wallpaperController?.applyNotificationResult(result)
-            }
 
             hudController = HUDController(model: model) { [weak self] in self?.hudController?.hide() }
             setupStatusItem()
@@ -76,16 +70,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func activate(_ pack: InstalledPack) {
         wallpaperController?.stop()
-        let controller = WallpaperController(
-            pack: pack,
-            notificationState: model?.notificationState ?? WallpaperNotificationState(
-                enabled: false,
-                authorization: .notDetermined
-            ),
-            notificationHandler: { [weak self] request in
-                self?.model?.receiveNotificationRequest(request)
-            }
-        )
+        let controller = WallpaperController(pack: pack)
         wallpaperController = controller
         controller.start()
         controller.applyMotionPreference(reduced: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
@@ -109,7 +94,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func toggleControls() { hudController?.toggle() }
-    @objc private func refreshCatalog() { model?.refreshCatalog() }
+    @objc private func refreshCatalog() { model?.refreshAll() }
     @objc private func screenConfigurationChanged() { wallpaperController?.rebuildSurfaces() }
     @objc private func workspaceBecameHidden() { wallpaperController?.applyVisibility(false) }
     @objc private func workspaceBecameVisible() { wallpaperController?.applyVisibility(true) }

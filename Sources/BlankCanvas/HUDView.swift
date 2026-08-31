@@ -12,6 +12,10 @@ struct HUDView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
+                    if model.notificationState.enabled || !model.notificationState.items.isEmpty {
+                        notificationUpdates
+                    }
+
                     if let installed = model.installedPack {
                         installedControls(installed)
                     }
@@ -29,9 +33,9 @@ struct HUDView: View {
                 Button("Browse online", action: model.openGallery)
                     .buttonStyle(.link)
                 Spacer()
-                Button("Refresh", action: model.refreshCatalog)
+                Button("Refresh", action: model.refreshAll)
                     .buttonStyle(.borderless)
-                    .disabled(model.isBusy)
+                    .disabled(model.isBusy || model.notificationState.isRefreshing)
             }
             .font(.system(size: 11, weight: .semibold))
         }
@@ -112,7 +116,7 @@ struct HUDView: View {
             set: { enabled in model.setNotificationsEnabled(enabled) }
         )) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Wallpaper notifications")
+                Text("Pull wallpaper updates")
                     .font(.system(size: 11.5, weight: .semibold))
                 Text(notificationHelp)
                     .font(.system(size: 9.5))
@@ -121,21 +125,92 @@ struct HUDView: View {
         }
         .toggleStyle(.switch)
         .controlSize(.small)
-        .accessibilityHint("Allows the active wallpaper to request occasional local notifications")
+        .accessibilityHint("Periodically checks the read-only update feeds declared by downloaded wallpapers")
         .padding(11)
         .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 12))
     }
 
     private var notificationHelp: String {
-        switch model.notificationState.authorization {
-        case .denied:
-            "Blocked by macOS. Allow blank-canvas in System Settings to turn this on."
-        case .authorized, .provisional, .ephemeral:
-            model.notificationState.enabled
-                ? "On · wallpapers may request at most one alert per minute."
-                : "Off · wallpapers cannot display alerts."
-        case .notDetermined, .unknown:
-            "Off by default. macOS permission is requested only when you turn this on."
+        model.notificationState.enabled
+            ? "On · checks signed wallpapers’ read-only Zenith feeds on their declared interval."
+            : "Off · no wallpaper update feeds are requested."
+    }
+
+    private var notificationUpdates: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack {
+                Text("WALLPAPER UPDATES")
+                    .font(.system(size: 9.5, weight: .bold))
+                    .foregroundStyle(.secondary)
+                if model.notificationState.unreadCount > 0 {
+                    Text("\(model.notificationState.unreadCount) NEW")
+                        .font(.system(size: 7.5, weight: .bold))
+                        .foregroundStyle(.indigo)
+                }
+                Spacer()
+                if model.notificationState.isRefreshing {
+                    ProgressView().controlSize(.mini)
+                } else {
+                    Button("Check", action: model.refreshNotifications)
+                        .buttonStyle(.borderless)
+                        .font(.system(size: 9.5, weight: .semibold))
+                }
+            }
+
+            if let error = model.notificationState.errorMessage {
+                Text(error)
+                    .font(.system(size: 9.5))
+                    .foregroundStyle(.orange)
+            }
+
+            if model.notificationState.items.isEmpty && !model.notificationState.isRefreshing {
+                Text("No published updates from downloaded wallpapers.")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(model.notificationState.items.prefix(8)) { item in
+                    notificationRow(item)
+                }
+                if model.notificationState.unreadCount > 0 {
+                    Button("Mark all read", action: model.markNotificationsRead)
+                        .buttonStyle(.link)
+                        .font(.system(size: 9.5, weight: .semibold))
+                }
+            }
+        }
+        .padding(11)
+        .background(Color.indigo.opacity(0.065), in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    @ViewBuilder
+    private func notificationRow(_ item: WallpaperNotificationItem) -> some View {
+        let content = VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 6) {
+                Text(item.wallpaperTitle)
+                    .font(.system(size: 8.5, weight: .bold))
+                    .foregroundStyle(.indigo)
+                Text(item.publishedAt, style: .relative)
+                    .font(.system(size: 8.5))
+                    .foregroundStyle(.tertiary)
+            }
+            Text(item.title)
+                .font(.system(size: 11, weight: .semibold))
+            if !item.body.isEmpty {
+                Text(item.body)
+                    .font(.system(size: 9.5))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 3)
+
+        if item.link != nil {
+            Button { model.openNotification(item) } label: { content }
+                .buttonStyle(.plain)
+                .accessibilityHint("Opens the wallpaper developer’s update link")
+        } else {
+            content
         }
     }
 

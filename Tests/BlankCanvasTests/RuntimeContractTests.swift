@@ -119,55 +119,65 @@ struct RuntimeContractTests {
         try PackSecurity.verify(manifest: manifest, publicKeyData: publicKey)
     }
 
-    @Test("The host bridge exposes additive events and guarded notification requests")
+    @Test("The host bridge exposes additive app events and feed capability")
     func hostBridgeContract() {
-        #expect(WallpaperHostBridge.apiVersion == "1.0.0")
+        #expect(WallpaperHostBridge.apiVersion == "1.1.0")
         #expect(WallpaperHostBridge.bootstrapScript.contains("globalThis.zenithWallpaper"))
+        #expect(WallpaperHostBridge.bootstrapScript.contains("notification-feeds"))
         #expect(WallpaperHostBridge.bootstrapScript.contains("requestNotification"))
-        #expect(WallpaperHostBridge.bootstrapScript.contains("notification-result"))
+        #expect(WallpaperHostBridge.bootstrapScript.contains("publish-to-declared-feed"))
+        #expect(!WallpaperHostBridge.bootstrapScript.contains("notification-request"))
         #expect(WallpaperHostBridge.json("action") == "\"action\"")
     }
 
-    @Test("Wallpaper notifications validate content and rate-limit each pack")
-    func notificationContract() throws {
-        let first = try WallpaperNotificationRequest(
-            message: [
-                "requestId": "request-1",
-                "notification": ["title": "Starfall", "body": "The current is bright.", "tag": "starfall"],
-            ],
-            packID: "starward-loggia"
+    @Test("Wallpaper JSON and RSS update feeds parse into the shared inbox model")
+    func notificationFeedContract() throws {
+        let json = Data(#"""
+        {
+          "schemaVersion": 1,
+          "wallpaperID": "starward-loggia",
+          "items": [{
+            "id": "starfall-2026",
+            "publishedAt": "2026-08-31T07:00:00Z",
+            "title": "Starfall",
+            "body": "The current is bright.",
+            "url": "https://zenith-research.ca/wallpapers"
+          }]
+        }
+        """#.utf8)
+        let jsonItems = try WallpaperNotificationFeedParser.parseJSON(
+            json,
+            packID: "starward-loggia",
+            wallpaperTitle: "Starward Loggia"
         )
-        #expect(first.title == "Starfall")
-        #expect(first.body == "The current is bright.")
+        #expect(jsonItems.count == 1)
+        #expect(jsonItems.first?.title == "Starfall")
+        #expect(jsonItems.first?.packID == "starward-loggia")
 
-        #expect(throws: WallpaperNotificationValidationError.self) {
-            try WallpaperNotificationRequest(
-                message: [
-                    "requestId": "request-2",
-                    "notification": ["title": String(repeating: "x", count: 81)],
-                ],
-                packID: "starward-loggia"
+        let rss = Data(#"""
+        <?xml version="1.0" encoding="UTF-8"?>
+        <rss version="2.0"><channel><item>
+          <guid>arrival-1</guid><title>Arrival</title>
+          <description>A new view is ready.</description>
+          <pubDate>Sun, 31 Aug 2026 07:00:00 +0000</pubDate>
+          <link>https://zenith-research.ca/wallpapers</link>
+        </item></channel></rss>
+        """#.utf8)
+        let rssItems = try WallpaperNotificationFeedParser.parseRSS(
+            rss,
+            packID: "starward-loggia",
+            wallpaperTitle: "Starward Loggia"
+        )
+        #expect(rssItems.count == 1)
+        #expect(rssItems.first?.body == "A new view is ready.")
+
+        #expect(throws: RuntimeError.self) {
+            try WallpaperNotificationFeedParser.parseJSON(
+                json,
+                packID: "different-wallpaper",
+                wallpaperTitle: "Different"
             )
         }
-
-        var gate = WallpaperNotificationGate(minimumInterval: 60)
-        let now = Date(timeIntervalSince1970: 1_000)
-        let firstAllowed = gate.permits(first, now: now)
-        let duplicateAllowed = gate.permits(first, now: now.addingTimeInterval(61))
-        #expect(firstAllowed)
-        #expect(!duplicateAllowed)
-        let second = try WallpaperNotificationRequest(
-            message: ["requestId": "request-3", "notification": ["title": "Again"]],
-            packID: "starward-loggia"
-        )
-        let secondAllowed = gate.permits(second, now: now.addingTimeInterval(30))
-        #expect(!secondAllowed)
-        let third = try WallpaperNotificationRequest(
-            message: ["requestId": "request-4", "notification": ["title": "Later"]],
-            packID: "starward-loggia"
-        )
-        let thirdAllowed = gate.permits(third, now: now.addingTimeInterval(61))
-        #expect(thirdAllowed)
     }
 
     private var fixtureManifest: PackManifest {

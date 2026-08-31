@@ -7,20 +7,12 @@ import WebKit
 @MainActor
 final class WallpaperController {
     private var surfaces: [WallpaperSurface] = []
-    private var notificationState: WallpaperNotificationState
-    private let notificationHandler: (WallpaperNotificationRequest) -> Void
     private var reducedMotion = false
     private var visible = true
     private(set) var pack: InstalledPack
 
-    init(
-        pack: InstalledPack,
-        notificationState: WallpaperNotificationState,
-        notificationHandler: @escaping (WallpaperNotificationRequest) -> Void
-    ) {
+    init(pack: InstalledPack) {
         self.pack = pack
-        self.notificationState = notificationState
-        self.notificationHandler = notificationHandler
     }
 
     func start() {
@@ -30,12 +22,7 @@ final class WallpaperController {
     func rebuildSurfaces() {
         surfaces.forEach { $0.close() }
         surfaces = NSScreen.screens.map {
-            WallpaperSurface(
-                screen: $0,
-                pack: pack,
-                notificationState: notificationState,
-                notificationHandler: notificationHandler
-            )
+            WallpaperSurface(screen: $0, pack: pack)
         }
         surfaces.forEach {
             $0.applyPreferences(reducedMotion: reducedMotion)
@@ -57,15 +44,6 @@ final class WallpaperController {
         surfaces.forEach { $0.applyVisibility(visible) }
     }
 
-    func applyNotificationState(_ state: WallpaperNotificationState) {
-        notificationState = state
-        surfaces.forEach { $0.applyNotificationState(state) }
-    }
-
-    func applyNotificationResult(_ result: WallpaperNotificationResult) {
-        surfaces.forEach { $0.applyNotificationResult(result) }
-    }
-
     func stop() {
         surfaces.forEach { $0.close() }
         surfaces = []
@@ -78,20 +56,9 @@ private final class WallpaperSurface: NSObject, WKNavigationDelegate, WKScriptMe
     private let webView: WKWebView
     private let resourceHandler: WallpaperResourceSchemeHandler
     private let logger: Logger
-    private let packID: String
-    private let notificationHandler: (WallpaperNotificationRequest) -> Void
-    private var notificationState: WallpaperNotificationState
 
-    init(
-        screen: NSScreen,
-        pack: InstalledPack,
-        notificationState: WallpaperNotificationState,
-        notificationHandler: @escaping (WallpaperNotificationRequest) -> Void
-    ) {
+    init(screen: NSScreen, pack: InstalledPack) {
         logger = Logger(subsystem: "ca.zenith-research.blank-canvas", category: "pack.\(pack.manifest.id)")
-        packID = pack.manifest.id
-        self.notificationState = notificationState
-        self.notificationHandler = notificationHandler
         let configuration = WKWebViewConfiguration()
         let handler = WallpaperResourceSchemeHandler(rootURL: pack.contentRoot)
         resourceHandler = handler
@@ -197,15 +164,6 @@ private final class WallpaperSurface: NSObject, WKNavigationDelegate, WKScriptMe
         )
     }
 
-    func applyNotificationState(_ state: WallpaperNotificationState) {
-        notificationState = state
-        dispatchHostEvent("notification-state", detail: state.eventDetail)
-    }
-
-    func applyNotificationResult(_ result: WallpaperNotificationResult) {
-        dispatchHostEvent("notification-result", detail: result.eventDetail)
-    }
-
     func webView(
         _ webView: WKWebView,
         decidePolicyFor navigationAction: WKNavigationAction,
@@ -217,21 +175,6 @@ private final class WallpaperSurface: NSObject, WKNavigationDelegate, WKScriptMe
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard let body = message.body as? [String: Any], let type = body["type"] as? String else { return }
-        if type == "notification-request" {
-            do {
-                notificationHandler(try WallpaperNotificationRequest(message: body, packID: packID))
-            } catch {
-                if let requestID = body["requestId"] as? String {
-                    applyNotificationResult(WallpaperNotificationResult(
-                        requestID: requestID,
-                        status: "invalid",
-                        reason: "invalid-payload"
-                    ))
-                }
-                logger.error("[notification-request] rejected invalid payload")
-            }
-            return
-        }
         if type == "ready" {
             let capabilities = body["capabilities"] as? [String] ?? []
             dispatchHostEvent("host-ready", detail: [
@@ -239,7 +182,6 @@ private final class WallpaperSurface: NSObject, WKNavigationDelegate, WKScriptMe
                 "wallpaperApiVersion": body["apiVersion"] as? String ?? "unknown",
                 "capabilities": capabilities,
             ])
-            applyNotificationState(notificationState)
         }
         let detail = body["message"] as? String ?? String(describing: body)
         if type == "fatal-error" {

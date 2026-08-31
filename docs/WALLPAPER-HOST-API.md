@@ -1,8 +1,8 @@
 # Blank Canvas wallpaper host API
 
-Blank Canvas injects `globalThis.zenithWallpaper` before wallpaper JavaScript runs. The additive v1 API is the common boundary between the macOS host and every wallpaper. Wallpapers should continue to expose `globalThis.wallpaperHost` while migrating; Blank Canvas uses it as the legacy fallback when no standard event listener is registered.
+Blank Canvas injects `globalThis.zenithWallpaper` before wallpaper JavaScript runs. The additive API is the common runtime boundary between the macOS host and every wallpaper. Wallpapers should continue to expose `globalThis.wallpaperHost` while migrating; Blank Canvas uses it as the legacy fallback when no standard event listener is registered.
 
-## Connect to host events
+## Runtime events
 
 ```js
 const host = globalThis.zenithWallpaper;
@@ -19,14 +19,8 @@ host.addEventListener("visibility-change", ({ detail }) => {
   setAnimationRunning(detail.visible);
 });
 
-host.addEventListener("notification-state", ({ detail }) => {
-  console.log(detail.enabled, detail.authorization);
-});
-
 host.ready({ apiVersion: "1.0", capabilities: ["webgl2"] });
 ```
-
-The event names and detail payloads are:
 
 | Event | Detail |
 | --- | --- |
@@ -34,32 +28,49 @@ The event names and detail payloads are:
 | `preferences-change` | `{ reducedMotion }` |
 | `action` | `{ id }` |
 | `visibility-change` | `{ visible }` |
-| `notification-state` | `{ enabled, authorization }` |
-| `notification-result` | `{ requestId, status, reason? }` |
 
 `on(type, listener)` returns an unsubscribe function. `off`, `addEventListener`, and `removeEventListener` are also available.
 
-## Request a notification
+## Pull-only wallpaper updates
 
-```js
-const result = await globalThis.zenithWallpaper.requestNotification({
-  title: "Starfall is beginning",
-  body: "A silver current is crossing the eastern sky.",
-  tag: "starfall",
-});
+Update messages are not runtime events and wallpaper JavaScript cannot post them. A wallpaper opts in by placing a read-only endpoint in its signed manifest:
+
+```json
+{
+  "notifications": {
+    "feedURL": "https://zenith-research.ca/wallpapers/v1/notifications/starward-loggia.json",
+    "format": "zenith-json-v1",
+    "pollIntervalMinutes": 15
+  }
+}
 ```
 
-Wallpaper code never asks macOS for notification permission. The person using Blank Canvas controls permission with the **Wallpaper notifications** switch in the app. Requests are plain local alerts: title is limited to 80 characters, body to 240 characters, and tag to 64 identifier characters. URLs, scripts, custom actions, sound, and remote push tokens are not accepted. Blank Canvas permits at most one delivered alert per wallpaper per minute and deduplicates request IDs across displays.
+The endpoint returns:
 
-The returned status is one of `delivered`, `disabled`, `denied`, `rate-limited`, `invalid`, `failed`, or `unavailable`. Treat every request as optional; wallpaper visuals must work when notifications are off.
+```json
+{
+  "schemaVersion": 1,
+  "wallpaperID": "starward-loggia",
+  "generatedAt": "2026-08-31T09:27:58Z",
+  "items": [{
+    "id": "release-1.0.2",
+    "publishedAt": "2026-08-31T09:27:58Z",
+    "title": "A new view is ready",
+    "body": "The Loggia lighting has been refined.",
+    "url": "https://zenith-research.ca/wallpapers"
+  }]
+}
+```
 
-## Browser development
+The private wallpaper repository publishes this document to `POST /api/admin/wallpapers/notifications` using a short-lived GitHub OIDC identity. Zenith exposes it as a cacheable, CORS-enabled GET endpoint. A repository may write only its own wallpaper ID.
 
-The producer template includes `src/zenith-wallpaper.js`. It supplies the same event surface in an ordinary browser and returns `{ status: "unavailable", reason: "native-host-required" }` for notification requests. This keeps local previews deterministic without simulating OS permission.
+In Blank Canvas, **Pull wallpaper updates** is off by default. When enabled, the app checks the endpoints declared by installed, signature-verified packs and presents messages in its in-app inbox. It does not register for push, request macOS notification permission, or let wallpaper content contact a privileged native notification API.
+
+`requestNotification()` is retained only so older experiments fail safely. It always resolves to `{ status: "unavailable", reason: "publish-to-declared-feed" }`.
 
 ## Compatibility
 
-- Host API v1 is additive to runtime 2.x and feature-detectable through `globalThis.zenithWallpaper`.
+- Host API 1.1 is additive to runtime 2.x and feature-detectable through `globalThis.zenithWallpaper`.
 - Older packs that only implement `globalThis.wallpaperHost` remain supported.
 - New packs should register event listeners before calling `ready`.
-- Unknown events and capabilities must be ignored.
+- Unknown events, capabilities, and optional manifest fields must be ignored.

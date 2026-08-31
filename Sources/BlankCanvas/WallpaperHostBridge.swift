@@ -1,7 +1,7 @@
 import Foundation
 
 enum WallpaperHostBridge {
-    static let apiVersion = "1.0.0"
+    static let apiVersion = "1.1.0"
 
     static let bootstrapScript = #"""
     (() => {
@@ -9,30 +9,19 @@ enum WallpaperHostBridge {
 
       const target = new EventTarget();
       const listeners = new Map();
-      const pendingNotifications = new Map();
-      let sequence = 0;
-
       const post = payload => window.webkit?.messageHandlers?.zenithRuntime?.postMessage(payload);
       const listenersFor = type => {
         if (!listeners.has(type)) listeners.set(type, new Set());
         return listeners.get(type);
       };
       const receive = (type, detail = {}) => {
-        if (type === "notification-result" && detail.requestId) {
-          const pending = pendingNotifications.get(detail.requestId);
-          if (pending) {
-            window.clearTimeout(pending.timer);
-            pendingNotifications.delete(detail.requestId);
-            pending.resolve(detail);
-          }
-        }
         target.dispatchEvent(new CustomEvent(type, { detail }));
         return listenersFor(type).size > 0;
       };
 
       const api = {
-        apiVersion: "1.0.0",
-        capabilities: Object.freeze(["events", "notifications"]),
+        apiVersion: "1.1.0",
+        capabilities: Object.freeze(["events", "notification-feeds"]),
         addEventListener(type, listener, options) {
           if (typeof listener !== "function") return;
           listenersFor(type).add(listener);
@@ -57,16 +46,8 @@ enum WallpaperHostBridge {
             capabilities: Array.isArray(metadata.capabilities) ? metadata.capabilities : [],
           });
         },
-        requestNotification(notification = {}) {
-          const requestId = `wallpaper-${Date.now()}-${++sequence}`;
-          return new Promise(resolve => {
-            const timer = window.setTimeout(() => {
-              pendingNotifications.delete(requestId);
-              resolve({ requestId, status: "unavailable", reason: "host-timeout" });
-            }, 15000);
-            pendingNotifications.set(requestId, { resolve, timer });
-            post({ type: "notification-request", requestId, notification });
-          });
+        async requestNotification() {
+          return { status: "unavailable", reason: "publish-to-declared-feed" };
         },
       };
 
