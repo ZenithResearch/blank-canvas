@@ -2,6 +2,8 @@
 
 A native macOS wallpaper runtime with no bundled wallpapers. It discovers signed packs at `https://zenith-research.ca/wallpapers/v1/catalog.json`, verifies and installs them locally, then renders them behind desktop icons through an isolated WebKit origin.
 
+Wallpaper developers integrate through the additive [`zenithWallpaper` host event API](docs/WALLPAPER-HOST-API.md). It standardizes app actions, preferences, lifecycle readiness, and user-controlled local notification requests while preserving the original `window.wallpaperHost` fallback.
+
 The application icon is generated reproducibly from `Resources/BlankCanvasIcon.svg`:
 
 ```sh
@@ -21,11 +23,14 @@ Local builds are ad-hoc signed. Public downloads must use a Developer ID Applica
 ```sh
 export BLANK_CANVAS_SIGNING_IDENTITY="Developer ID Application: Zenith Research (…)"
 export BLANK_CANVAS_NOTARY_PROFILE="blank-canvas-notary"
+export BLANK_CANVAS_EXPECTED_TEAM_ID="…"
 zsh scripts/build-app.sh
 zsh scripts/build-staging-app.sh
 ```
 
 The scripts enable the hardened runtime, submit each ZIP to Apple, staple the notarization ticket to the app, and recreate the distributable ZIP. Do not publish the ad-hoc local artifacts from `dist/`.
+
+Use the same Developer ID Application certificate and Apple Team Identifier as Hypha. The build fails if the signed Team Identifier differs, ensuring both applications resolve to the same Apple-verified developer identity once notarized. There is no persistent “known developer” identity for ad-hoc signatures; those releases remain per-app Gatekeeper exceptions.
 
 The manual `Notarized macOS release` GitHub Actions workflow performs the same operation on a clean macOS runner. It requires these repository secrets: `MACOS_CERTIFICATE_P12_BASE64`, `MACOS_CERTIFICATE_PASSWORD`, `MACOS_KEYCHAIN_PASSWORD`, `MACOS_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, and `APPLE_TEAM_ID`.
 

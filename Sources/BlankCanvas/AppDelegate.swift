@@ -16,6 +16,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.model = model
             model.activatePack = { [weak self] pack in self?.activate(pack) }
             model.performAction = { [weak self] action in self?.wallpaperController?.performAction(action) }
+            model.notificationStateChanged = { [weak self] state in
+                self?.wallpaperController?.applyNotificationState(state)
+            }
+            model.notificationResult = { [weak self] result in
+                self?.wallpaperController?.applyNotificationResult(result)
+            }
 
             hudController = HUDController(model: model) { [weak self] in self?.hudController?.hide() }
             setupStatusItem()
@@ -29,6 +35,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 name: NSApplication.didChangeScreenParametersNotification,
                 object: nil
             )
+            let workspaceNotifications = NSWorkspace.shared.notificationCenter
+            workspaceNotifications.addObserver(
+                self,
+                selector: #selector(workspaceBecameHidden),
+                name: NSWorkspace.screensDidSleepNotification,
+                object: nil
+            )
+            workspaceNotifications.addObserver(
+                self,
+                selector: #selector(workspaceBecameHidden),
+                name: NSWorkspace.sessionDidResignActiveNotification,
+                object: nil
+            )
+            workspaceNotifications.addObserver(
+                self,
+                selector: #selector(workspaceBecameVisible),
+                name: NSWorkspace.screensDidWakeNotification,
+                object: nil
+            )
+            workspaceNotifications.addObserver(
+                self,
+                selector: #selector(workspaceBecameVisible),
+                name: NSWorkspace.sessionDidBecomeActiveNotification,
+                object: nil
+            )
             hudController?.show()
             model.start()
         } catch {
@@ -39,15 +70,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         NotificationCenter.default.removeObserver(self)
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
         wallpaperController?.stop()
     }
 
     private func activate(_ pack: InstalledPack) {
         wallpaperController?.stop()
-        let controller = WallpaperController(pack: pack)
+        let controller = WallpaperController(
+            pack: pack,
+            notificationState: model?.notificationState ?? WallpaperNotificationState(
+                enabled: false,
+                authorization: .notDetermined
+            ),
+            notificationHandler: { [weak self] request in
+                self?.model?.receiveNotificationRequest(request)
+            }
+        )
         wallpaperController = controller
         controller.start()
         controller.applyMotionPreference(reduced: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
+        controller.applyVisibility(true)
     }
 
     private func setupStatusItem() {
@@ -69,5 +111,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func toggleControls() { hudController?.toggle() }
     @objc private func refreshCatalog() { model?.refreshCatalog() }
     @objc private func screenConfigurationChanged() { wallpaperController?.rebuildSurfaces() }
+    @objc private func workspaceBecameHidden() { wallpaperController?.applyVisibility(false) }
+    @objc private func workspaceBecameVisible() { wallpaperController?.applyVisibility(true) }
     @objc private func quit() { NSApplication.shared.terminate(nil) }
 }

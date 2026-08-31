@@ -65,6 +65,7 @@ jobs:
         env:
           BLANK_CANVAS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
           BLANK_CANVAS_NOTARY_PROFILE: blank-canvas-notary
+          BLANK_CANVAS_EXPECTED_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           BLANK_CANVAS_RELEASE_MODE: notarized
         run: zsh scripts/package-release.sh
 

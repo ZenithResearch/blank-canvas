@@ -36,6 +36,14 @@ else
   codesign --force --deep --options runtime --timestamp --sign "$SIGNING_IDENTITY" "$APP_DIR"
 fi
 codesign --verify --deep --strict "$APP_DIR"
+if [[ "$SIGNING_IDENTITY" != "-" ]]; then
+  : "${BLANK_CANVAS_EXPECTED_TEAM_ID:?expected Apple Developer team ID is required}"
+  ACTUAL_TEAM_ID="$(codesign -dv --verbose=4 "$APP_DIR" 2>&1 | awk -F= '/^TeamIdentifier=/{print $2}')"
+  if [[ "$ACTUAL_TEAM_ID" != "$BLANK_CANVAS_EXPECTED_TEAM_ID" ]]; then
+    echo "Signed TeamIdentifier $ACTUAL_TEAM_ID does not match expected $BLANK_CANVAS_EXPECTED_TEAM_ID" >&2
+    exit 1
+  fi
+fi
 rm -f "$TEMP_DOWNLOAD_PATH"
 (
   cd "$PROJECT_DIR/build"

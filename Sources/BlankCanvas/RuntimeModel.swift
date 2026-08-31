@@ -9,14 +9,18 @@ final class RuntimeModel: ObservableObject {
     @Published private(set) var status = "Connecting to the wallpaper catalog…"
     @Published private(set) var isBusy = false
     @Published private(set) var errorMessage: String?
+    @Published private(set) var notificationState: WallpaperNotificationState
     let configuration: RuntimeConfiguration
 
     var activatePack: ((InstalledPack) -> Void)?
     var performAction: ((String) -> Void)?
+    var notificationStateChanged: ((WallpaperNotificationState) -> Void)?
+    var notificationResult: ((WallpaperNotificationResult) -> Void)?
 
     private let client: CatalogClient
     private let store: PackStore
     private let installer: PackInstaller
+    private let notifications: WallpaperNotificationService
     private let publicKeyData: Data
     private let logger = Logger(subsystem: "ca.zenith-research.blank-canvas", category: "runtime")
 
@@ -24,6 +28,8 @@ final class RuntimeModel: ObservableObject {
         self.configuration = configuration
         client = CatalogClient(configuration: configuration)
         store = try PackStore(namespace: configuration.cacheNamespace, defaultsPrefix: configuration.defaultsPrefix)
+        notifications = WallpaperNotificationService(defaultsPrefix: configuration.defaultsPrefix)
+        notificationState = notifications.state
         let keyURL = Bundle.main.url(forResource: "WallpaperPublicKey", withExtension: "txt")
         guard let keyURL,
               let encoded = try? String(contentsOf: keyURL, encoding: .utf8),
@@ -32,6 +38,13 @@ final class RuntimeModel: ObservableObject {
         }
         publicKeyData = publicKey
         installer = PackInstaller(client: client, store: store, publicKeyData: publicKey)
+        notifications.onStateChange = { [weak self] state in
+            self?.notificationState = state
+            self?.notificationStateChanged?(state)
+        }
+        notifications.onResult = { [weak self] result in
+            self?.notificationResult?(result)
+        }
     }
 
     var featuredPack: CatalogPack? {
@@ -39,6 +52,7 @@ final class RuntimeModel: ObservableObject {
     }
 
     func start() {
+        notifications.start()
         if let selected = try? store.selectedPack(),
            (try? PackSecurity.verify(manifest: selected.manifest, publicKeyData: publicKeyData)) != nil {
             installedPack = selected
@@ -114,6 +128,14 @@ final class RuntimeModel: ObservableObject {
 
     func runAction(_ id: String) {
         performAction?(id)
+    }
+
+    func setNotificationsEnabled(_ enabled: Bool) {
+        notifications.setEnabled(enabled)
+    }
+
+    func receiveNotificationRequest(_ request: WallpaperNotificationRequest) {
+        notifications.submit(request)
     }
 
     func openGallery() {

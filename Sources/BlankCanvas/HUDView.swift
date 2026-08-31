@@ -8,6 +8,7 @@ struct HUDView: View {
         VStack(alignment: .leading, spacing: 16) {
             header
             statusCard
+            notificationControl
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
@@ -103,6 +104,39 @@ struct HUDView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(11)
         .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var notificationControl: some View {
+        Toggle(isOn: Binding(
+            get: { model.notificationState.enabled },
+            set: { enabled in model.setNotificationsEnabled(enabled) }
+        )) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Wallpaper notifications")
+                    .font(.system(size: 11.5, weight: .semibold))
+                Text(notificationHelp)
+                    .font(.system(size: 9.5))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .toggleStyle(.switch)
+        .controlSize(.small)
+        .accessibilityHint("Allows the active wallpaper to request occasional local notifications")
+        .padding(11)
+        .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var notificationHelp: String {
+        switch model.notificationState.authorization {
+        case .denied:
+            "Blocked by macOS. Allow blank-canvas in System Settings to turn this on."
+        case .authorized, .provisional, .ephemeral:
+            model.notificationState.enabled
+                ? "On · wallpapers may request at most one alert per minute."
+                : "Off · wallpapers cannot display alerts."
+        case .notDetermined, .unknown:
+            "Off by default. macOS permission is requested only when you turn this on."
+        }
     }
 
     private func catalogSection(_ packs: [CatalogPack]) -> some View {
