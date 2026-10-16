@@ -38,8 +38,16 @@ final class PackStore: @unchecked Sendable {
         guard fileManager.fileExists(atPath: manifestURL.path),
               fileManager.fileExists(atPath: contentRoot.path) else { return nil }
         let manifest = try JSONDecoder().decode(PackManifest.self, from: Data(contentsOf: manifestURL))
+        try manifest.interface?.validate()
         let installed = InstalledPack(manifest: manifest, contentRoot: contentRoot)
         guard fileManager.fileExists(atPath: installed.entryURL.path) else { return nil }
+        if let interfaceURL = installed.interfaceURL {
+            var isDirectory: ObjCBool = false
+            guard fileManager.fileExists(atPath: interfaceURL.path, isDirectory: &isDirectory),
+                  !isDirectory.boolValue else {
+                throw RuntimeError.invalidArchive("declared interface entry is unavailable")
+            }
+        }
         return installed
     }
 

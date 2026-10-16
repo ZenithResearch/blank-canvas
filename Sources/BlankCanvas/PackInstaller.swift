@@ -39,17 +39,22 @@ final class PackInstaller: @unchecked Sendable {
 
         do {
             let entries = try archiveEntries(at: archiveURL)
-            guard entries.count <= 512 else { throw RuntimeError.invalidArchive("too many files") }
-            guard entries.contains(manifest.entry) else { throw RuntimeError.invalidArchive("entry point missing") }
-            guard entries.allSatisfy(PackSecurity.validateRelativePath) else {
-                throw RuntimeError.invalidArchive("unsafe archive path")
-            }
+            try Self.validateArchiveEntries(entries, manifest: manifest)
             try run("/usr/bin/ditto", arguments: ["-x", "-k", archiveURL.path, contentRoot.path])
             try rejectLinks(in: contentRoot)
             let entryURL = contentRoot.appendingPathComponent(manifest.entry).standardizedFileURL
             guard entryURL.path.hasPrefix(contentRoot.standardizedFileURL.path + "/"),
                   fileManager.fileExists(atPath: entryURL.path) else {
                 throw RuntimeError.invalidArchive("entry point is unavailable")
+            }
+            if let interfaceEntry = manifest.interface?.entry {
+                let interfaceURL = contentRoot.appendingPathComponent(interfaceEntry).standardizedFileURL
+                var isDirectory: ObjCBool = false
+                guard interfaceURL.path.hasPrefix(contentRoot.standardizedFileURL.path + "/"),
+                      fileManager.fileExists(atPath: interfaceURL.path, isDirectory: &isDirectory),
+                      !isDirectory.boolValue else {
+                    throw RuntimeError.invalidArchive("interface entry point is unavailable")
+                }
             }
             try manifestData.write(to: versionStaging.appendingPathComponent("manifest.json"), options: .atomic)
             let finalRoot = store.versionRoot(id: manifest.id, version: manifest.version)
@@ -92,6 +97,7 @@ final class PackInstaller: @unchecked Sendable {
         if let notifications = manifest.notifications {
             try validateNotificationFeed(notifications)
         }
+        try manifest.interface?.validate()
     }
 
     private func validateNotificationFeed(_ notifications: PackNotifications) throws {
@@ -106,6 +112,19 @@ final class PackInstaller: @unchecked Sendable {
         }
         if let interval = notifications.pollIntervalMinutes, !(15...1440).contains(interval) {
             throw RuntimeError.invalidManifest("notification poll interval must be between 15 and 1440 minutes")
+        }
+    }
+
+    static func validateArchiveEntries(_ entries: [String], manifest: PackManifest) throws {
+        guard entries.count <= 512 else { throw RuntimeError.invalidArchive("too many files") }
+        guard entries.allSatisfy(PackSecurity.validateRelativePath) else {
+            throw RuntimeError.invalidArchive("unsafe archive path")
+        }
+        guard entries.contains(manifest.entry) else {
+            throw RuntimeError.invalidArchive("entry point missing")
+        }
+        if let interfaceEntry = manifest.interface?.entry, !entries.contains(interfaceEntry) {
+            throw RuntimeError.invalidArchive("interface entry point missing")
         }
     }
 
