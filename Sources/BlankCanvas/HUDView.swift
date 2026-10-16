@@ -1,13 +1,52 @@
 import SwiftUI
 
+private enum HUDSurface: String, CaseIterable, Identifiable {
+    case world = "World"
+    case hermes = "Hermes"
+
+    var id: String { rawValue }
+}
+
 struct HUDView: View {
     @ObservedObject var model: RuntimeModel
+    @ObservedObject var hermes: HermesConnectionModel
     let dismiss: () -> Void
     @State private var failedInterfaceIdentity: String?
+    @State private var surface: HUDSurface = .world
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 14) {
             header
+            Picker("Hub surface", selection: $surface) {
+                ForEach(HUDSurface.allCases) { surface in
+                    Text(surface.rawValue).tag(surface)
+                }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityHint("Selects the trusted native World or Hermes surface")
+
+            Group {
+                switch surface {
+                case .world:
+                    worldSurface
+                case .hermes:
+                    HermesHUDView(connection: hermes)
+                }
+            }
+            .frame(maxHeight: .infinity, alignment: .top)
+        }
+        .padding(18)
+        .frame(width: 540, height: 680)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color.primary.opacity(0.1), lineWidth: 1)
+        }
+        .padding(10)
+    }
+
+    private var worldSurface: some View {
+        VStack(alignment: .leading, spacing: 16) {
             statusCard
             notificationControl
 
@@ -28,7 +67,7 @@ struct HUDView: View {
                     }
                 }
             }
-            .frame(maxHeight: 460)
+            .frame(maxHeight: 430)
 
             HStack {
                 Button("Browse online", action: model.openGallery)
@@ -40,14 +79,6 @@ struct HUDView: View {
             }
             .font(.system(size: 11, weight: .semibold))
         }
-        .padding(18)
-        .frame(width: 360)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(Color.primary.opacity(0.1), lineWidth: 1)
-        }
-        .padding(10)
     }
 
     private var header: some View {

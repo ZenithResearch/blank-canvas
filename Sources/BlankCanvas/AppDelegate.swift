@@ -4,6 +4,7 @@ import Carbon.HIToolbox
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var model: RuntimeModel?
+    private var hermesConnection: HermesConnectionModel?
     private var wallpaperController: WallpaperController?
     private var hudController: HUDController?
     private var statusItem: NSStatusItem?
@@ -17,7 +18,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             model.activatePack = { [weak self] pack in self?.activate(pack) }
             model.performAction = { [weak self] action in self?.wallpaperController?.performAction(action) }
 
-            hudController = HUDController(model: model) { [weak self] in self?.hudController?.hide() }
+            let hermesClient = HermesClientModel(transport: HermesWebSocketTransport())
+            let hermesConnection = HermesConnectionModel(
+                client: hermesClient,
+                settings: UserDefaultsHermesConnectionSettingsStore(
+                    key: "\(configuration.defaultsPrefix).hermes.connection"
+                ),
+                credentials: KeychainHermesCredentialStore(
+                    service: "ca.zenith-research.blank-canvas.hermes.\(configuration.defaultsPrefix)"
+                )
+            )
+            self.hermesConnection = hermesConnection
+            hudController = HUDController(model: model, hermes: hermesConnection) { [weak self] in
+                self?.hudController?.hide()
+            }
             setupStatusItem()
             hudHotKey = try GlobalHotKey(
                 keyCode: UInt32(kVK_ANSI_H),
@@ -65,6 +79,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         NotificationCenter.default.removeObserver(self)
         NSWorkspace.shared.notificationCenter.removeObserver(self)
+        hermesConnection?.disconnect()
         wallpaperController?.stop()
     }
 

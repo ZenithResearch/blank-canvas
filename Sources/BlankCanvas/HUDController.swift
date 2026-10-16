@@ -5,9 +5,9 @@ import SwiftUI
 final class HUDController {
     private let panel: NSPanel
 
-    init(model: RuntimeModel, dismiss: @escaping () -> Void) {
-        let hostingView = NSHostingView(rootView: HUDView(model: model, dismiss: dismiss))
-        hostingView.frame = NSRect(x: 0, y: 0, width: 380, height: 590)
+    init(model: RuntimeModel, hermes: HermesConnectionModel, dismiss: @escaping () -> Void) {
+        let hostingView = NSHostingView(rootView: HUDView(model: model, hermes: hermes, dismiss: dismiss))
+        hostingView.frame = NSRect(x: 0, y: 0, width: 560, height: 700)
         panel = NSPanel(
             contentRect: hostingView.frame,
             styleMask: [.titled, .closable, .utilityWindow],
