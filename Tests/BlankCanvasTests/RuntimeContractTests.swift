@@ -5,6 +5,29 @@ import Testing
 
 @Suite("blank-canvas contracts")
 struct RuntimeContractTests {
+    @Test("Release surfaces agree on runtime 2.1.0")
+    func releaseVersionConsistency() throws {
+        #expect(runtimeVersion == SemanticVersion("2.1.0"))
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let expectations = [
+            ("Sources/BlankCanvas/HUDView.swift", "Wallpaper runtime · 2.1.0"),
+            ("Packaging/Info.plist", "<string>2.1.0</string>"),
+            ("Packaging/Info-Staging.plist", "<string>2.1.0</string>"),
+            ("scripts/build-app.sh", "blank-canvas-2.1.0-macOS.zip"),
+            ("scripts/build-staging-app.sh", "blank-canvas-staging-2.1.0-macOS.zip"),
+            ("scripts/write-release-metadata.mjs", "const version = \"2.1.0\""),
+            (".github/workflows/notarized-release.yml", "blank-canvas-2.1.0-macOS"),
+            ("README.md", "dist/blank-canvas-2.1.0-macOS.zip"),
+        ]
+        for (relativePath, expected) in expectations {
+            let source = try String(contentsOf: root.appendingPathComponent(relativePath), encoding: .utf8)
+            #expect(source.contains(expected), "\(relativePath) must contain \(expected)")
+        }
+    }
+
     @Test("Semantic runtime versions compare numerically")
     func semanticVersions() {
         #expect(SemanticVersion("2.0.0")! < SemanticVersion("2.1.0")!)

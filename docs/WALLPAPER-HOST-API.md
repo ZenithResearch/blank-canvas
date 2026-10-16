@@ -68,6 +68,41 @@ In Blank Canvas, **Pull wallpaper updates** is off by default. When enabled, the
 
 `requestNotification()` is retained only so older experiments fail safely. It always resolves to `{ status: "unavailable", reason: "publish-to-declared-feed" }`.
 
+## Optional wallpaper-provided controls
+
+Runtime 2.1 adds an optional signed interface declaration. Packs without it continue to use Blank Canvas’s native action grid.
+
+```json
+{
+  "runtime": {
+    "api": "zenith-wallpaper-host",
+    "minimumVersion": "2.1.0",
+    "maximumExclusiveVersion": "3.0.0"
+  },
+  "interface": {
+    "version": 1,
+    "entry": "controls/interface.html",
+    "height": 220
+  }
+}
+```
+
+Version 1 accepts a safe pack-relative `.html` entry and a height from 96 through 360 points. The file must be present in the signed archive and remains under the verified extracted content root. Existing digest, signature, archive-path, and link checks still apply.
+
+Blank Canvas renders this entry in a dedicated non-persistent `WKWebView` at the isolated `blank-canvas://interface/` origin. On supported macOS releases WebKit manages the process model because explicit `WKProcessPool` selection is deprecated and has no isolation effect. Its CSP sets `connect-src 'none'`, denies frames, objects, forms, and base URLs, and does not allow `unsafe-eval`. Only the first main-frame navigation to the declared entry is allowed. Popups, subsequent navigations, subframes, HTTP, and HTTPS are denied.
+
+The interface receives one frozen API at document start:
+
+```js
+const accepted = globalThis.zenithWallpaperInterface.performAction("ring-bell");
+```
+
+`performAction` accepts a non-empty string of at most 128 UTF-8 bytes. Native code revalidates the exact two-field message and dispatches only action IDs listed in the signed manifest. Version 1 has no state channel, dynamic resizing, filesystem access, credential access, general native messaging, or arbitrary view injection.
+
+The interface message handler, delegates, pending navigation policy, and page load are torn down when SwiftUI removes the view, including pack/version switches and HUD replacement. Load failures and WebKit content-process termination are scoped to that exact pack version and restore the native action grid. A different version remains eligible for its own interface.
+
+Interface authors should use semantic HTML, visible keyboard focus, sufficient contrast, descriptive labels, and `prefers-reduced-motion`. Controls must remain operable at the declared fixed height. Interface files must not contain credentials or rely on a network connection.
+
 ## Compatibility
 
 - Host API 1.1 is additive to runtime 2.x and feature-detectable through `globalThis.zenithWallpaper`.

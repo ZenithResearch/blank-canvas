@@ -1,6 +1,6 @@
 import Foundation
 
-let runtimeVersion = SemanticVersion("2.0.0")!
+let runtimeVersion = SemanticVersion("2.1.0")!
 
 struct WallpaperCatalog: Decodable, Sendable {
     let schemaVersion: Int

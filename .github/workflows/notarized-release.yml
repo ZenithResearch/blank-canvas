@@ -72,7 +72,7 @@ jobs:
       - name: Upload renderer-only distributions
         uses: actions/upload-artifact@v4
         with:
-          name: blank-canvas-2.0.0-macOS
+          name: blank-canvas-2.1.0-macOS
           path: |
             dist/*.zip
             dist/*-release.json

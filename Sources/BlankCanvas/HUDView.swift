@@ -59,7 +59,7 @@ struct HUDView: View {
                 Text("blank-canvas")
                     .font(.system(size: 16, weight: .bold))
                 HStack(spacing: 6) {
-                    Text("Wallpaper runtime · 2.0.0")
+                    Text("Wallpaper runtime · 2.1.0")
                     if model.configuration.channel != .production {
                         Text(model.configuration.displayChannel.uppercased())
                             .font(.system(size: 8.5, weight: .bold))
