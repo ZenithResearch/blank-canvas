@@ -3,6 +3,7 @@ import SwiftUI
 private enum HUDSurface: String, CaseIterable, Identifiable {
     case world = "World"
     case hermes = "Hermes"
+    case wallet = "Wallet"
 
     var id: String { rawValue }
 }
@@ -23,7 +24,7 @@ struct HUDView: View {
                 }
             }
             .pickerStyle(.segmented)
-            .accessibilityHint("Selects the trusted native World or Hermes surface")
+            .accessibilityHint("Selects the trusted native World, Hermes, or Wallet surface")
 
             Group {
                 switch surface {
@@ -31,6 +32,8 @@ struct HUDView: View {
                     worldSurface
                 case .hermes:
                     HermesHUDView(connection: hermes)
+                case .wallet:
+                    walletBoundary
                 }
             }
             .frame(maxHeight: .infinity, alignment: .top)
@@ -79,6 +82,23 @@ struct HUDView: View {
             }
             .font(.system(size: 11, weight: .semibold))
         }
+    }
+
+    private var walletBoundary: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Castalia wallet", systemImage: "lock.shield")
+                .font(.system(size: 14, weight: .bold))
+            Text("No wallet is configured. Wallet identity, approval, recovery, and signing remain in the trusted native boundary and are never exposed to wallpaper WebKit.")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("The custody helper is not active until a wallet is explicitly created or imported.")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.orange)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 12))
     }
 
     private var header: some View {
