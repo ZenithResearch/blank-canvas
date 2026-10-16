@@ -3,6 +3,7 @@ import SwiftUI
 struct HUDView: View {
     @ObservedObject var model: RuntimeModel
     let dismiss: () -> Void
+    @State private var failedInterfaceIdentity: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -58,7 +59,7 @@ struct HUDView: View {
                 Text("blank-canvas")
                     .font(.system(size: 16, weight: .bold))
                 HStack(spacing: 6) {
-                    Text("Wallpaper runtime · 2.0.0")
+                    Text("Wallpaper runtime · 2.1.0")
                     if model.configuration.channel != .production {
                         Text(model.configuration.displayChannel.uppercased())
                             .font(.system(size: 8.5, weight: .bold))
@@ -294,24 +295,43 @@ struct HUDView: View {
                 Image(systemName: "checkmark.seal.fill").foregroundStyle(.green)
             }
 
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                ForEach(installed.manifest.actions) { action in
-                    Button {
-                        model.runAction(action.id)
-                    } label: {
-                        VStack(spacing: 5) {
-                            Image(systemName: action.symbol)
-                            Text(action.title).font(.system(size: 10.5, weight: .medium))
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 7)
+            if WallpaperInterfacePresentation.usesCustomInterface(
+                installed,
+                failedIdentity: failedInterfaceIdentity
+            ), let interface = installed.manifest.interface {
+                WallpaperInterfaceView(
+                    pack: installed,
+                    performAction: model.runAction,
+                    onFailure: {
+                        failedInterfaceIdentity = WallpaperInterfacePresentation.identity(for: installed)
                     }
-                    .buttonStyle(.bordered)
-                }
+                )
+                .id(WallpaperInterfacePresentation.identity(for: installed))
+                .frame(height: CGFloat(interface.height))
+            } else {
+                nativeActionGrid(installed)
             }
         }
         .padding(11)
         .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func nativeActionGrid(_ installed: InstalledPack) -> some View {
+        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+            ForEach(installed.manifest.actions) { action in
+                Button {
+                    model.runAction(action.id)
+                } label: {
+                    VStack(spacing: 5) {
+                        Image(systemName: action.symbol)
+                        Text(action.title).font(.system(size: 10.5, weight: .medium))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 7)
+                }
+                .buttonStyle(.bordered)
+            }
+        }
     }
 
     private var emptyState: some View {

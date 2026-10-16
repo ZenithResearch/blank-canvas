@@ -16,7 +16,7 @@ Build with:
 zsh scripts/build-app.sh
 ```
 
-The release ZIP is written to `dist/blank-canvas-2.0.0-macOS.zip`. The app bundle contains only the executable and the public wallpaper-signing key. Publish that artifact through the Zenith landing-site release workflow; wallpaper packs remain in their own repositories.
+The release ZIP is written to `dist/blank-canvas-2.1.0-macOS.zip`. The app bundle contains only the executable and the public wallpaper-signing key. Publish that artifact through the Zenith landing-site release workflow; wallpaper packs remain in their own repositories.
 
 Local builds are ad-hoc signed. Public downloads must use a Developer ID Application identity and a stored `notarytool` profile so Gatekeeper can verify them:
 
@@ -54,7 +54,7 @@ Build a separate, visibly labelled staging app with an isolated cache and bundle
 zsh scripts/build-staging-app.sh
 ```
 
-The downloadable staging ZIP is written to `dist/blank-canvas-staging-2.0.0-macOS.zip`. It always reads `https://zenith-research.ca/wallpapers/v1/staging/catalog.json`; no Vercel preview hostname is embedded.
+The downloadable staging ZIP is written to `dist/blank-canvas-staging-2.1.0-macOS.zip`. It always reads `https://zenith-research.ca/wallpapers/v1/staging/catalog.json`; no Vercel preview hostname is embedded.
 
 ## Development mode
 

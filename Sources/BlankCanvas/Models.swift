@@ -1,6 +1,6 @@
 import Foundation
 
-let runtimeVersion = SemanticVersion("2.0.0")!
+let runtimeVersion = SemanticVersion("2.1.0")!
 
 struct WallpaperCatalog: Decodable, Sendable {
     let schemaVersion: Int
@@ -36,6 +36,7 @@ struct PackManifest: Codable, Sendable {
     let requirements: PackRequirements
     let archive: PackArchive
     let actions: [PackAction]
+    var interface: PackInterface? = nil
     let motion: PackMotion
     var notifications: PackNotifications? = nil
     var signature: PackSignature?
@@ -76,6 +77,25 @@ struct PackAction: Codable, Identifiable, Sendable {
     let symbol: String
 }
 
+struct PackInterface: Codable, Sendable {
+    let version: Int
+    let entry: String
+    let height: Int
+
+    func validate() throws {
+        guard version == 1 else {
+            throw RuntimeError.invalidManifest("unsupported interface version")
+        }
+        guard PackSecurity.validateRelativePath(entry),
+              URL(fileURLWithPath: entry).pathExtension.lowercased() == "html" else {
+            throw RuntimeError.invalidManifest("interface entry point must be a safe HTML path")
+        }
+        guard (96...360).contains(height) else {
+            throw RuntimeError.invalidManifest("interface height must be between 96 and 360 points")
+        }
+    }
+}
+
 struct PackMotion: Codable, Sendable {
     let supportsReducedMotion: Bool
 }
@@ -92,6 +112,10 @@ struct InstalledPack: Sendable {
 
     var entryURL: URL {
         contentRoot.appendingPathComponent(manifest.entry)
+    }
+
+    var interfaceURL: URL? {
+        manifest.interface.map { contentRoot.appendingPathComponent($0.entry) }
     }
 }
 

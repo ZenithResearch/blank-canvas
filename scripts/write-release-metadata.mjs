@@ -10,7 +10,7 @@ if (mode !== "adhoc" && mode !== "notarized") {
   throw new Error("usage: node scripts/write-release-metadata.mjs adhoc|notarized");
 }
 
-const version = "2.0.0";
+const version = "2.1.0";
 const commit = execFileSync("git", ["-C", root, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 const releases = [
   { channel: "production", artifact: `blank-canvas-${version}-macOS.zip` },

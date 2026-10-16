@@ -4,12 +4,36 @@ import WebKit
 @MainActor
 final class WallpaperResourceSchemeHandler: NSObject, WKURLSchemeHandler {
     static let scheme = "blank-canvas"
-    static let host = "pack"
+
+    enum Surface {
+        case wallpaper
+        case interface
+
+        var host: String {
+            switch self {
+            case .wallpaper: "pack"
+            case .interface: "interface"
+            }
+        }
+
+        var contentSecurityPolicy: String {
+            switch self {
+            case .wallpaper:
+                "default-src 'self' data: blob:; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'"
+            case .interface:
+                "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self' data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+            }
+        }
+    }
 
     private let rootURL: URL
+    private let surface: Surface
 
-    init(rootURL: URL) {
+    var contentSecurityPolicy: String { surface.contentSecurityPolicy }
+
+    init(rootURL: URL, surface: Surface = .wallpaper) {
         self.rootURL = rootURL.standardizedFileURL
+        self.surface = surface
         super.init()
     }
 
@@ -32,7 +56,7 @@ final class WallpaperResourceSchemeHandler: NSObject, WKURLSchemeHandler {
                 "Content-Type": contentType,
                 "Content-Length": String(data.count),
                 "Cache-Control": "no-cache",
-                "Content-Security-Policy": "default-src 'self' data: blob:; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'",
+                "Content-Security-Policy": contentSecurityPolicy,
             ]
         ) else {
             urlSchemeTask.didFailWithError(RuntimeError.invalidArchive("response creation failed"))
@@ -53,13 +77,13 @@ final class WallpaperResourceSchemeHandler: NSObject, WKURLSchemeHandler {
         guard PackSecurity.validateRelativePath(relativePath) else { return nil }
         var components = URLComponents()
         components.scheme = Self.scheme
-        components.host = Self.host
+        components.host = surface.host
         components.path = "/" + relativePath
         return components.url
     }
 
     func resolve(_ requestURL: URL) -> URL? {
-        guard requestURL.scheme == Self.scheme, requestURL.host == Self.host else { return nil }
+        guard requestURL.scheme == Self.scheme, requestURL.host == surface.host else { return nil }
         let relativePath = requestURL.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         guard PackSecurity.validateRelativePath(relativePath) else { return nil }
         let candidate = rootURL.appendingPathComponent(relativePath).standardizedFileURL
